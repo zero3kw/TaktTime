@@ -15,7 +15,8 @@ body { margin: 0; }
   --surface: #E4E9E5;
   --ink: #18221E;
   --muted: #5C6B65;
-  --accent: #2F6B57;
+  --accent: #962649; /* DIC 273 */
+  --ontime: #3FA37E;
   --warn: #8C5A00;
   --over: #C0392B;
   --font-text: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif;
@@ -25,13 +26,13 @@ body { margin: 0; }
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --bg: #111916; --surface: #1D2824; --ink: #E4ECE8; --muted: #8FA19A;
-    --accent: #6FBF9F; --warn: #E2A93B; --over: #F0705F;
+    --accent: #B8405F; --ontime: #6FBF9F; --warn: #E2A93B; --over: #F0705F;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #111916; --surface: #1D2824; --ink: #E4ECE8; --muted: #8FA19A;
-  --accent: #6FBF9F; --warn: #E2A93B; --over: #F0705F;
+  --accent: #B8405F; --ontime: #6FBF9F; --warn: #E2A93B; --over: #F0705F;
 }
 html, body { height: 100%; }
 body {
@@ -79,7 +80,7 @@ body {
 }
 .state { font-size: clamp(.85rem, min(3cqw, 6cqh), 1.8rem); min-height: 1.4em; color: var(--muted); text-align: center; }
 .bar { width: min(100%, 900px); height: clamp(4px, 2cqh, 12px); background: var(--surface); border-radius: 5px; overflow: hidden; }
-.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s linear, background .3s; }
+.bar i { display: block; height: 100%; width: 0; background: var(--ontime); transition: width .3s linear, background .3s; }
 .warn .clock, .warn .state { color: var(--warn); }
 .warn .bar i { background: var(--warn); }
 .over .clock, .over .state { color: var(--over); }
@@ -112,7 +113,7 @@ button {
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
 /* The main action is two rows tall: the height of the row below, twice, plus the gap. */
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); flex: 1; min-height: calc(88px + .5rem); font-size: 1.25rem; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; flex: 1; min-height: calc(88px + .5rem); font-size: 1.25rem; }
 button.primary:hover:not(:disabled) { border-color: var(--ink); }
 button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 /* Disabled: no fill, dashed outline, faded text — reads as "not available" next to the filled buttons. */
@@ -123,7 +124,7 @@ button:disabled, button.primary:disabled {
 .strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.2rem, 1fr)); gap: .4rem; }
 .chip { background: var(--surface); border-radius: 6px; padding: .35rem .45rem; font: .78rem var(--font-num); display: flex; flex-direction: column; gap: .1rem; border-bottom: 3px solid transparent; }
 .chip .n { color: var(--muted); }
-.chip.done { border-bottom-color: var(--accent); }
+.chip.done { border-bottom-color: var(--ontime); }
 .chip.done.late { border-bottom-color: var(--over); }
 .chip.now { outline: 2px solid var(--ink); outline-offset: -2px; }
 .chip .t { font-weight: 600; }
