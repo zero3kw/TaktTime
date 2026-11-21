@@ -111,7 +111,8 @@ button {
   border: 2px solid var(--surface); background: var(--surface); color: var(--ink);
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); flex: 1; }
+/* The main action is two rows tall: the height of the row below, twice, plus the gap. */
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); flex: 1; min-height: calc(88px + .5rem); font-size: 1.25rem; }
 button.primary:hover:not(:disabled) { border-color: var(--ink); }
 button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 /* Disabled: no fill, dashed outline, faded text — reads as "not available" next to the filled buttons. */
