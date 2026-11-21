@@ -236,10 +236,10 @@ function fmt(ms, sign) {
   return (neg ? '−' : sign && t ? '+' : '') + m + ':' + String(sec).padStart(2, '0');
 }
 // Countdown rounds toward the deadline so it reads 0:00 exactly when time is up.
-function fmtDown(ms) {
+function fmtDown(ms, overSign = '+') {
   const t = ms >= 0 ? Math.ceil(ms / 1000) : Math.floor(ms / 1000);
   const a = Math.abs(t);
-  return (t < 0 ? '+' : '') + Math.floor(a / 60) + ':' + String(a % 60).padStart(2, '0');
+  return (t < 0 ? overSign : '') + Math.floor(a / 60) + ':' + String(a % 60).padStart(2, '0');
 }
 const hhmm = t => new Date(t).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
@@ -249,13 +249,20 @@ function load() {
   return null;
 }
 
+// Trim an allotment by under half a second so the speaker's deadline falls on the same
+// second boundary as the session's end; both countdowns then tick at the same moment.
+function aligned(raw, turnStart) {
+  const after = s.end - turnStart - raw;
+  return s.end - turnStart - Math.round(after / 1000) * 1000;
+}
 // Starts the session, or hands over to the next speaker.
 function next() {
   if (finished()) return;
   const now = Date.now();
   if (!started()) {
     s.end = deadline();
-    s.base = s.allot = base();
+    s.base = base();
+    s.allot = aligned(s.base, now);
     s.startedAt = s.turnStart = now;
     try { localStorage.setItem(LAST, JSON.stringify({ mode: s.mode, total: s.total, endHM: s.endHM, n: s.n })); } catch (e) {}
   } else {
@@ -263,7 +270,7 @@ function next() {
     s.i++;
     s.turnStart = now;
     if (finished()) s.finalLeft = s.end - now;
-    else s.allot = Math.max(0, s.end - now) / (s.n - s.i);
+    else s.allot = aligned(Math.max(0, s.end - now) / (s.n - s.i), now);
   }
   save(); render();
 }
@@ -321,7 +328,7 @@ function render() {
   }
 
   // Stats
-  $('left').textContent = fmt(left);
+  $('left').textContent = started() && !finished() ? fmtDown(left, '−') : fmt(left);
   $('end').textContent = (started() ? '終了 ' : '終了予定 ') + hhmm(deadline());
   const restN = s.n - s.i - 1;
   if (!finished() && restN > 0) {
