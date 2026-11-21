@@ -16,7 +16,7 @@ body { margin: 0; }
   --ink: #18221E;
   --muted: #5C6B65;
   --accent: #2F6B57;
-  --warn: #B87A0C;
+  --warn: #8C5A00;
   --over: #C0392B;
   --font-text: "Zen Kaku Gothic New", "Hiragino Sans", system-ui, sans-serif;
   --font-num: "Chivo Mono", ui-monospace, "SF Mono", monospace;
@@ -43,18 +43,29 @@ body {
 .app { height: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: clamp(.4rem, 2.2vh, 1.25rem); padding-block: clamp(.4rem, 2vh, 1rem); max-width: 1400px; margin: 0 auto; overflow: hidden; }
 .settings { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: center; color: var(--muted); font-size: .95rem; }
 .settings label { display: flex; align-items: center; gap: .4rem; }
+/* Every control is at least 44px tall (HIG minimum hit target). */
 .settings input {
-  width: 4.5em; font: 600 1rem var(--font-num); color: var(--ink); background: var(--surface);
-  border: 1px solid transparent; border-radius: 6px; padding: .3rem .4rem; text-align: right;
+  width: 4.5em; height: 44px; box-sizing: border-box; font: 600 1rem var(--font-num); color: var(--ink); background: var(--surface);
+  border: 1px solid transparent; border-radius: 8px; padding: 0 .5rem; text-align: right;
 }
 .settings input[type="time"] { width: auto; }
-.settings select {
-  font: 700 .95rem var(--font-text); color: var(--ink); background: var(--surface);
-  border: 1px solid transparent; border-radius: 6px; padding: .3rem .4rem;
-}
-.settings input:focus-visible, .settings select:focus-visible { outline: 2px solid var(--accent); }
+.settings input:focus-visible { outline: 2px solid var(--accent); }
 /* Locked after start: drop the field background so the values read as fixed text. */
-.settings input:disabled, .settings select:disabled { background: transparent; color: var(--muted); opacity: 1; appearance: none; padding-inline: 0; }
+.settings input:disabled { background: transparent; color: var(--muted); opacity: 1; appearance: none; padding-inline: 0; }
+
+.seg { display: inline-flex; background: var(--surface); border-radius: 10px; padding: 2px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { min-height: 40px; padding: 0 1rem; border-radius: 8px; color: var(--muted); font-weight: 700; cursor: pointer; }
+.seg input:checked + label { background: var(--bg); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / .18); }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); }
+.seg:has(input:disabled) { background: transparent; padding: 0; }
+.seg input:disabled + label { cursor: default; box-shadow: none; background: transparent; color: var(--muted); padding: 0; }
+.seg input:disabled:not(:checked) + label { display: none; }
+
+.stepper { display: inline-flex; align-items: center; gap: 2px; }
+.stepper button { width: 44px; height: 44px; padding: 0; font: 600 1.3rem var(--font-num); }
+.stepper button:disabled { display: none; }
+.field { display: flex; align-items: center; gap: .4rem; }
 .settings .base { font-family: var(--font-num); }
 .settings .hint { margin-left: auto; font-size: .8rem; }
 
@@ -85,8 +96,18 @@ body {
 .controls .sub { display: flex; gap: .5rem; }
 .controls .sub button { flex: 1; }
 .controls .sub #reset { flex: 0 0 auto; margin-left: auto; }
+.destructive:not(:disabled) { color: var(--over); }
+dialog {
+  background: var(--bg); color: var(--ink); border: 0; border-radius: 14px; padding: 1.25rem;
+  width: min(22rem, calc(100vw - 32px)); box-sizing: border-box; box-shadow: 0 12px 40px rgb(0 0 0 / .35);
+}
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog h2 { margin: 0 0 .4rem; font-size: 1.1rem; }
+dialog p { margin: 0 0 1.1rem; color: var(--muted); line-height: 1.6; }
+.dialog-actions { display: flex; gap: .5rem; }
+.dialog-actions button { flex: 1; }
 button {
-  font: 700 1rem var(--font-text); border-radius: 8px; padding: clamp(.4rem, 1.6vh, .8rem) 1.4rem; cursor: pointer;
+  font: 700 1rem var(--font-text); border-radius: 8px; padding: clamp(.4rem, 1.6vh, .8rem) 1.4rem; cursor: pointer; min-height: 44px;
   border: 2px solid var(--surface); background: var(--surface); color: var(--ink);
 }
 button:hover:not(:disabled) { border-color: var(--accent); }
@@ -105,6 +126,7 @@ button:disabled, button.primary:disabled {
 .chip.done.late { border-bottom-color: var(--over); }
 .chip.now { outline: 2px solid var(--ink); outline-offset: -2px; }
 .chip .t { font-weight: 600; }
+.chip .late-mark { color: var(--over); font-family: var(--font-text); font-weight: 700; }
 
 @media (max-width: 560px) {
   .stats { grid-template-columns: 1fr 1fr; }
@@ -125,13 +147,18 @@ button:disabled, button.primary:disabled {
 
 <div class="app">
   <div class="settings">
-    <select id="mode" aria-label="時間の指定方法">
-      <option value="end" selected>終了時刻で指定</option>
-      <option value="dur">長さで指定</option>
-    </select>
+    <div class="seg" role="radiogroup" aria-label="時間の指定方法">
+      <input type="radio" name="mode" id="modeEnd" value="end" checked><label for="modeEnd">終了時刻</label>
+      <input type="radio" name="mode" id="modeDur" value="dur"><label for="modeDur">長さ</label>
+    </div>
     <label for="total" id="totalWrap" hidden>全体 <input id="total" type="number" min="1" value="90"> 分</label>
     <label for="endAt" id="endWrap"><input id="endAt" type="time" value="12:00"> まで</label>
-    <label for="count">人数 <input id="count" type="number" min="1" value="15"> 人</label>
+    <span class="field"><label for="count">人数</label>
+      <span class="stepper">
+        <button type="button" id="dec" aria-label="1 人減らす">−</button>
+        <input id="count" type="number" min="1" value="10">
+        <button type="button" id="inc" aria-label="1 人増やす">＋</button>
+      </span> 人</span>
     <span>基準 <span class="base" id="base">6:00</span> / 人</span>
     <span class="hint">→ 開始・次の人 ／ ← 1 人戻す</span>
   </div>
@@ -153,29 +180,40 @@ button:disabled, button.primary:disabled {
     <button class="primary" id="nextBtn">開始</button>
     <div class="sub">
       <button id="backBtn">← 1 人戻す</button>
-      <button id="reset">最初から</button>
+      <button id="reset" class="destructive">最初から</button>
     </div>
   </div>
 
   <div class="strip" id="strip"></div>
 </div>
 
+<dialog id="confirm">
+  <h2>最初からやり直しますか？</h2>
+  <p>記録した発表時間はすべて消えます。この操作は取り消せません。</p>
+  <div class="dialog-actions">
+    <button type="button" id="cancel" autofocus>キャンセル</button>
+    <button type="button" id="doReset" class="destructive">最初から</button>
+  </div>
+</dialog>
+
 <script>
 const $ = id => document.getElementById(id);
-const KEY = 'relay-timer-v3';
+const KEY = 'takttime-v1';
+const LAST = 'takttime-last'; // settings used at the last start
+const modeValue = () => document.querySelector('input[name="mode"]:checked').value;
 
 // All times are wall-clock ms. Once started, the session has a fixed deadline `end`:
 // mode 'dur' sets it to start + total, mode 'end' to the chosen time of day.
 let s;
 function fresh() {
   return {
-    v: 3,
-    mode: $('mode').value,
+    v: 1,
+    mode: modeValue(),
     total: Math.max(1, +$('total').value || 1) * 60000,
     endHM: $('endAt').value || '12:00',
     n: Math.max(1, Math.round(+$('count').value) || 1),
     startedAt: null, i: 0, turnStart: 0,
-    end: null, base: null, allot: null, finalLeft: null, log: [], confirmReset: false
+    end: null, base: null, allot: null, finalLeft: null, log: []
   };
 }
 const started = () => !!s.startedAt;
@@ -206,7 +244,7 @@ const hhmm = t => new Date(t).toLocaleTimeString('ja-JP', { hour: '2-digit', min
 
 function save() { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
 function load() {
-  try { const v = JSON.parse(localStorage.getItem(KEY)); if (v && v.v === 3) return v; } catch (e) {}
+  try { const v = JSON.parse(localStorage.getItem(KEY)); if (v && v.v === 1) return v; } catch (e) {}
   return null;
 }
 
@@ -218,6 +256,7 @@ function next() {
     s.end = deadline();
     s.base = s.allot = base();
     s.startedAt = s.turnStart = now;
+    try { localStorage.setItem(LAST, JSON.stringify({ mode: s.mode, total: s.total, endHM: s.endHM, n: s.n })); } catch (e) {}
   } else {
     s.log.push({ allot: s.allot, used: now - s.turnStart });
     s.i++;
@@ -238,8 +277,12 @@ function back() {
   save(); render();
 }
 function reset() {
-  if (!s.confirmReset && started()) { s.confirmReset = true; render(); return; }
   s = fresh(); save(); render();
+  $('confirm').close();
+}
+function step(d) {
+  $('count').value = Math.max(1, (Math.round(+$('count').value) || 1) + d);
+  applySettings();
 }
 function applySettings() {
   if (started()) return; // locked once started
@@ -248,7 +291,7 @@ function applySettings() {
 
 function render() {
   const now = Date.now(), left = remaining(), b = base(), a = allot();
-  $('mode').disabled = $('total').disabled = $('endAt').disabled = $('count').disabled = started();
+  for (const id of ['modeEnd', 'modeDur', 'total', 'endAt', 'count', 'dec', 'inc']) $(id).disabled = started();
   $('totalWrap').hidden = s.mode === 'end'; $('endWrap').hidden = s.mode !== 'end';
   $('base').textContent = fmt(b);
 
@@ -265,7 +308,8 @@ function render() {
   } else {
     const used = started() ? now - s.turnStart : 0, rem = a - used;
     $('who').innerHTML = '発表者 <b>' + (s.i + 1) + '</b> / ' + s.n;
-    $('clock').textContent = fmtDown(rem);
+    // Before the start, round like the stats below so the clock and "この人の持ち時間" agree.
+    $('clock').textContent = started() ? fmtDown(rem) : fmt(rem);
     $('bar').style.width = Math.min(100, a ? used / a * 100 : 100) + '%';
     let msg;
     if (!started()) msg = '開始を押すと 1 人目の時間が始まります';
@@ -295,16 +339,17 @@ function render() {
   $('nextBtn').disabled = finished();
   $('backBtn').disabled = !s.log.length;
   $('reset').disabled = !started();
-  $('reset').textContent = s.confirmReset ? '本当に最初から？' : '最初から';
 
   // Strip
   let html = '';
   for (let k = 0; k < s.n; k++) {
     const r = s.log[k];
     let cls = 'chip', t = '';
-    if (r) { cls += ' done' + (r.used > r.allot + 999 ? ' late' : ''); t = fmt(r.used); }
+    const late = r && r.used > r.allot + 999;
+    if (r) { cls += ' done' + (late ? ' late' : ''); t = fmt(r.used); }
     else if (k === s.i) { cls += ' now'; if (started()) t = fmt(now - s.turnStart); }
-    html += '<div class="' + cls + '"><span class="n">' + (k + 1) + '</span><span class="t">' + (t || '&nbsp;') + '</span></div>';
+    html += '<div class="' + cls + '"><span class="n">' + (k + 1) + (late ? ' <span class="late-mark">超過</span>' : '') +
+      '</span><span class="t">' + (t || '&nbsp;') + '</span></div>';
   }
   $('strip').innerHTML = html;
 }
@@ -317,34 +362,49 @@ function setDiff(id, d) {
 
 $('nextBtn').onclick = next;
 $('backBtn').onclick = back;
-$('reset').onclick = reset;
-['mode', 'total', 'endAt', 'count'].forEach(id => $(id).addEventListener('input', applySettings));
+$('reset').onclick = () => $('confirm').showModal();
+$('cancel').onclick = () => $('confirm').close();
+$('doReset').onclick = reset;
+$('dec').onclick = () => step(-1);
+$('inc').onclick = () => step(1);
+['modeEnd', 'modeDur', 'total', 'endAt', 'count'].forEach(id => $(id).addEventListener('input', applySettings));
 document.addEventListener('keydown', e => {
-  if (['INPUT', 'SELECT'].includes(e.target.tagName)) return;
+  if (e.target.tagName === 'INPUT' || $('confirm').open) return;
   // Presentation remotes usually send PageDown/PageUp; some send arrows.
   const k = e.key;
   if (['PageDown', 'ArrowRight', 'ArrowDown', 'Enter', ' '].includes(k)) { e.preventDefault(); next(); }
   else if (['PageUp', 'ArrowLeft', 'ArrowUp'].includes(k)) { e.preventDefault(); back(); }
 });
-document.addEventListener('click', e => { if (e.target.id !== 'reset' && s.confirmReset) { s.confirmReset = false; render(); } });
 
 // Default end time: 90 minutes from now.
 function defaultEndHM() {
   const d = new Date(Date.now() + 90 * 60000), p = x => String(x).padStart(2, '0');
   return p(d.getHours()) + ':' + p(d.getMinutes());
 }
-function start(data) {
-  $('endAt').value = defaultEndHM();
-  s = (data && data.v === 3) ? data : load() || fresh();
-  if (!started() && !(data && data.v === 3)) s.endHM = defaultEndHM(); // a saved, unstarted end time is stale
-  s.confirmReset = false;
-  // Fill the inputs from saved state once; after that the inputs are the source of truth.
-  $('mode').value = s.mode; $('total').value = s.total / 60000; $('endAt').value = s.endHM; $('count').value = s.n;
+function start() {
+  // Continue a session in progress (e.g. after a reload) unless it is over or long past its end.
+  const saved = load();
+  if (saved && saved.startedAt && saved.i < saved.n && Date.now() < saved.end + 30 * 60000) s = saved;
+  else {
+    // Otherwise start fresh with the settings of the last start; first time: end 90 minutes from now, 10 speakers.
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem(LAST)); } catch (e) {}
+    last = last || { mode: 'end', total: 90 * 60000, endHM: defaultEndHM(), n: 10 };
+    // URL parameters win: ?end=12:10 or ?min=90, and ?n=15
+    const q = new URLSearchParams(location.search);
+    if (/^\d{1,2}:\d{2}$/.test(q.get('end') || '')) { last.mode = 'end'; last.endHM = q.get('end').padStart(5, '0'); }
+    else if (+q.get('min') > 0) { last.mode = 'dur'; last.total = +q.get('min') * 60000; }
+    if (Math.round(+q.get('n')) >= 1) last.n = Math.round(+q.get('n'));
+    $(last.mode === 'end' ? 'modeEnd' : 'modeDur').checked = true;
+    $('total').value = last.total / 60000; $('endAt').value = last.endHM; $('count').value = last.n;
+    s = fresh();
+  }
+  // Fill the inputs from the state once; after that the inputs are the source of truth.
+  $(s.mode === 'end' ? 'modeEnd' : 'modeDur').checked = true; $('total').value = s.total / 60000; $('endAt').value = s.endHM; $('count').value = s.n;
   render();
   setInterval(render, 250);
 }
-window.claude?.hot?.snapshot?.(() => s);
-window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+start();
 </script>
 </body>
 </html>
