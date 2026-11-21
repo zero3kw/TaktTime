@@ -272,7 +272,7 @@ function next() {
     s.base = base();
     s.allot = aligned(s.base, now);
     s.startedAt = s.turnStart = now;
-    try { localStorage.setItem(LAST, JSON.stringify({ mode: s.mode, total: s.total, endHM: s.endHM, n: s.n })); } catch (e) {}
+    try { localStorage.setItem(LAST, JSON.stringify({ mode: s.mode, total: s.total, n: s.n })); } catch (e) {}
   } else {
     s.log.push({ allot: s.allot, used: now - s.turnStart });
     s.i++;
@@ -402,10 +402,11 @@ function start() {
   const saved = load();
   if (saved && saved.startedAt && saved.i < saved.n && Date.now() < saved.end + 30 * 60000) s = saved;
   else {
-    // Otherwise start fresh with the settings of the last start; first time: end 90 minutes from now, 10 speakers.
+    // Otherwise start fresh with the settings of the last start; first time: end mode, 90 minutes, 10 speakers.
+    // The end time is not kept: it is always 90 minutes from now.
     let last = null;
     try { last = JSON.parse(localStorage.getItem(LAST)); } catch (e) {}
-    last = last || { mode: 'end', total: 90 * 60000, endHM: defaultEndHM(), n: 10 };
+    last = { mode: 'end', total: 90 * 60000, n: 10, ...last, endHM: defaultEndHM() };
     // URL parameters win: ?end=12:10 or ?min=90, and ?n=15
     const q = new URLSearchParams(location.search);
     if (/^\d{1,2}:\d{2}$/.test(q.get('end') || '')) { last.mode = 'end'; last.endHM = q.get('end').padStart(5, '0'); }
