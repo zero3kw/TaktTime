@@ -7,6 +7,8 @@ so an overrun is spread over everyone after.
 
 Live: https://zero3kw.github.io/TaktTime/
 
+![Speaker 6 of 15, with two earlier speakers over time](docs/screenshot.png)
+
 - Set the end time or a length, and the number of speakers. Defaults, in
   order of priority: URL parameters, the settings of the last start,
   90 minutes from now and 10 speakers.
@@ -23,3 +25,6 @@ To view it locally:
 ```
 python3 -m http.server 8000 -d docs
 ```
+
+The iPhone and iPad app is in
+[TaktTime-Apple](https://github.com/zero3kw/TaktTime-Apple).
