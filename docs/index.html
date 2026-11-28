@@ -104,6 +104,12 @@ body {
 .controls .sub { display: flex; gap: .5rem; }
 .controls .sub button { flex: 1; }
 .controls .sub #reset { flex: 0 0 auto; margin-left: auto; }
+/* The sound toggle stays at the top right however the settings wrap; it works while running too. */
+.settings { position: relative; padding-right: 52px; }
+#soundBtn { position: absolute; top: 0; right: 0; width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }
+#soundBtn svg { width: 22px; height: 22px; }
+#soundBtn[aria-pressed="false"] { color: var(--muted); }
+#soundBtn[aria-pressed="false"] .on, #soundBtn[aria-pressed="true"] .off { display: none; }
 .destructive:not(:disabled) { color: var(--over); }
 dialog {
   background: var(--bg); color: var(--ink); border: 0; border-radius: 14px; padding: 1.25rem;
@@ -170,6 +176,10 @@ button:disabled, button.primary:disabled {
       </span> 人</span>
     <span>基準 <span class="base" id="base">6:00</span> / 人</span>
     <span class="hint">→ 開始・次の人 ／ ← 1 人戻す</span>
+    <button type="button" id="soundBtn" aria-pressed="true" aria-label="音" title="音">
+      <svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+      <svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z" fill="currentColor"/><path d="m16 9 6 6"/><path d="m22 9-6 6"/></svg>
+    </button>
   </div>
 
   <div class="stage" id="stage">
@@ -293,6 +303,47 @@ function back() {
   s.finalLeft = null;
   save(); render();
 }
+// Alarm while the speaker is over time. Browsers allow sound only after a user gesture, so every
+// press makes the AudioContext if needed and leaves it running only while the alarm sounds.
+const SOUND = 'takttime-sound';
+let ctx = null, alarmBuf = null, alarmSrc = null;
+let soundOn = true;
+try { soundOn = localStorage.getItem(SOUND) !== '0'; } catch (e) {}
+function audio() {
+  if (!ctx) { ctx = new AudioContext(); alarmBuf = alarmBuffer(ctx); }
+  return ctx;
+}
+function unlockAudio() { if (alarmSrc) audio().resume(); else audio().suspend(); }
+// One beat at 115.6 BPM, the same as the iOS app, played on a loop, in triplets: F#4 for one, fading to 9/14,
+// then B3 for two, fading to 4/14. A thin square wave (12.5% duty) gives the old handheld-game sound.
+function alarmBuffer(c) {
+  const rate = c.sampleRate, third = 60 / 115.6 / 3, duty = 0.125; // a third of a beat
+  const notes = [{ pitch: 369.99, start: 0, len: third, fadeTo: 9 / 14 }, { pitch: 246.94, start: third, len: 2 * third, fadeTo: 4 / 14 }];
+  const buf = c.createBuffer(1, Math.round(rate * 3 * third), rate), out = buf.getChannelData(0);
+  for (let i = 0; i < out.length; i++) {
+    const t = i / rate, n = notes.find(n => t - n.start >= 0 && t - n.start < n.len);
+    if (!n) continue;
+    const local = t - n.start, edge = Math.min(1, local / 0.003, (n.len - local) / 0.003); // soften the clicks
+    const level = 1 - (1 - n.fadeTo) * local / n.len;
+    out[i] = 0.04 * edge * level * ((local * n.pitch) % 1 < duty ? 1 : -1);
+  }
+  return buf;
+}
+function alarm(on) {
+  if (on === !!alarmSrc) return;
+  if (!on) { alarmSrc.stop(); alarmSrc = null; ctx.suspend(); return; }
+  const c = audio();
+  c.resume();
+  alarmSrc = c.createBufferSource();
+  alarmSrc.buffer = alarmBuf; alarmSrc.loop = true;
+  alarmSrc.connect(c.destination); alarmSrc.start();
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  try { localStorage.setItem(SOUND, soundOn ? '1' : '0'); } catch (e) {}
+  render();
+}
+
 function reset() {
   s = fresh(); save(); render();
   $('confirm').close();
@@ -314,6 +365,7 @@ function render() {
 
   const stage = $('stage');
   stage.classList.remove('warn', 'over');
+  let over = false; // the current speaker is past their allotment; drives the alarm
 
   if (finished()) {
     $('who').innerHTML = '全員終了';
@@ -330,11 +382,13 @@ function render() {
     $('bar').style.width = Math.min(100, a ? used / a * 100 : 100) + '%';
     let msg;
     if (!started()) msg = '開始を押すと 1 人目の時間が始まります';
-    else if (rem < 0) { msg = '超過中。残り ' + (s.n - s.i - 1) + ' 人の時間から引かれています'; stage.classList.add('over'); }
+    else if (rem < 0) { over = true; msg = '超過中。残り ' + (s.n - s.i - 1) + ' 人の時間から引かれています'; stage.classList.add('over'); }
     else if (rem < 60000) { msg = 'まもなく終了'; stage.classList.add('warn'); }
     else msg = '発表中';
     $('state').textContent = msg;
   }
+
+  alarm(soundOn && over);
 
   // Stats
   $('left').textContent = started() && !finished() ? fmtDown(left, '−') : fmt(left);
@@ -356,6 +410,7 @@ function render() {
   $('nextBtn').disabled = finished();
   $('backBtn').disabled = !s.log.length;
   $('reset').disabled = !started();
+  $('soundBtn').setAttribute('aria-pressed', soundOn); // CSS shows the matching icon
 
   // Strip
   let html = '';
@@ -379,6 +434,8 @@ function setDiff(id, d) {
 
 $('nextBtn').onclick = next;
 $('backBtn').onclick = back;
+$('soundBtn').onclick = toggleSound;
+['pointerdown', 'keydown'].forEach(e => document.addEventListener(e, unlockAudio));
 $('reset').onclick = () => $('confirm').showModal();
 $('cancel').onclick = () => $('confirm').close();
 $('doReset').onclick = reset;
