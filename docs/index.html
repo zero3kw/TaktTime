@@ -282,12 +282,13 @@ function next() {
   }
   save(); render();
 }
-// Undo the last handover: the previous speaker continues with their original allotment.
+// Undo the last handover: the previous speaker's clock resumes where it stopped.
+// Time spent since the handover counts for no one; it comes out of the later speakers' shares.
 function back() {
   if (!s.log.length) return;
   const r = s.log.pop();
   s.i--;
-  s.turnStart -= r.used;
+  s.turnStart = Date.now() - r.used;
   s.allot = r.allot;
   s.finalLeft = null;
   save(); render();
